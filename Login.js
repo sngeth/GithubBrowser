@@ -2,24 +2,81 @@
 
 import React, { Component } from 'react';
 import { Text, StyleSheet, View, Image, TextInput,
-TouchableHighlight } from 'react-native';
+TouchableHighlight, ActivityIndicator } from 'react-native';
+
+var buffer = require('buffer')
 
 export default class Login extends Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      showProgress: false,
+    }
+  }
+
+  onLoginPressed() {
+    this.setState({showProgress: true});
+
+    var b = buffer.Buffer(this.state.username +
+                          ':' + this.state.password);
+    var encodedAuth = b.toString('base64');
+
+    fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization' : 'Basic ' + encodedAuth
+        }
+    })
+    .then((response) => {
+      if(response.status >= 200 && response.status < 300) {
+        return response;
+      }
+
+      throw {
+        badCredentials: response.status == 401,
+        unknownError: response.status != 401
+      }
+    })
+    .then((response) => {
+      return response.json();
+    })
+    .then((results) => {
+      console.log(results);
+      this.setState({showProgress: false})
+    })
+    .catch((err) => {
+      console.log('logon failed: ' + err);
+    })
+    .finally(() => {
+      this.setState({showProgress: false});
+    })
+  }
+
   render() {
     return (
       <View style={styles.container}>
         <Image style={styles.logo} source={require('image!Octocat')} />
         <Text style={styles.heading}>
-          GitHub Browser
+          JIRA Coconut
         </Text>
         <TextInput style={styles.input}
+          onChangeText={(text)=> this.setState({username: text})}
           placeholder="Github username" />
         <TextInput style={styles.input}
+          onChangeText={(text)=> this.setState({password: text})}
           placeholder="Github password"
           secureTextEntry={true} />
-          <TouchableHighlight style={styles.button}>
+          <TouchableHighlight
+            onPress={this.onLoginPressed.bind(this)}
+            style={styles.button}>
             <Text style={styles.buttonText}>Log in</Text>
           </TouchableHighlight>
+
+          <ActivityIndicator
+            animation={this.state.showProgress}
+            size="large"
+            style={styles.loader}
+            />
       </View>
     )
   }
@@ -60,5 +117,8 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: '#FFF',
     alignSelf: 'center',
+  },
+  loader: {
+    marginTop: 20
   }
 });
